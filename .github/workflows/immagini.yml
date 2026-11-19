@@ -1,0 +1,44 @@
+# Le immagini di Dokkan che mancano in questo repository, scaricate da sole (copia in D:\App\Gachadex\strumenti\
+# immagini-dokkan-nuove, docs/dokkan.md, "Le immagini nuove, da sole"). Lo stesso lavoro in tutti e 9 i repository delle
+# immagini, ognuno a un minuto diverso (mai insieme, e mai al 23 dell'aggiornatore di DokkanDB): legge i dati
+# pubblicati e chiede a DokkanDB solo i file nuovi, una richiesta ogni 4 secondi. Quasi sempre non c'è niente da
+# scaricare e il giro dura pochi secondi.
+name: Immagini nuove
+
+on:
+  schedule:
+    - cron: "13 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: immagini
+  cancel-in-progress: false
+
+jobs:
+  immagini:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Senza i file (i repository pesano fino a 1 GB): l'albero basta per sapere cosa c'è già.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          filter: blob:none
+          sparse-checkout: |
+            .github
+            .immagini-mancanti.json
+            immagini-nuove.mjs
+          sparse-checkout-cone-mode: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+      - name: Le immagini che mancano
+        run: node immagini-nuove.mjs
+      - name: Sul sito
+        run: |
+          git add --sparse -A
+          if git diff --cached --quiet; then echo "niente di nuovo"; exit 0; fi
+          git -c user.name="Gachara" -c user.email="noreply@github.com" commit -q -m "Immagini nuove $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q
